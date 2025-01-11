@@ -4,10 +4,15 @@ PDFWorker is a desktop application built with Python and PyQt6 that provides var
 
 ## Features
 
-- **Convert PDF to Images**: Extracts each page of a PDF and saves it as an image in the selected output folder.
-- **Extract Text from PDF**: Extracts all text from a PDF and saves it as a text file.
-- **Merge PDFs**: Combines multiple PDF files into a single PDF.
-- **Split PDF**: Splits a PDF into individual pages, each saved as a separate PDF file.
+- **Convert PDF to Images**: Extracts each page of a PDF and saves it as an image in the selected output folder.  
+- **Extract Text from PDF**: Extracts all text from a PDF and saves it as a text file.  
+- **Merge PDFs**: Combines multiple PDF files into a single PDF.  
+- **Split PDF**: Splits a PDF into individual pages, each saved as a separate PDF file.  
+- **Encrypt PDF**: Adds password protection to a PDF, ensuring that only users with the correct password can open it.  
+- **Decrypt PDF**: Removes password protection from a PDF, making it accessible without a password.  
+- **Add Watermark**: Applies a watermark from another PDF file to all pages of a selected PDF.  
+- **Compress PDF**: Reduces the file size of a PDF while maintaining its content and quality.  
+- **Extract Images from PDF**: Extracts all embedded images from a PDF and saves them in the selected output folder.
 
 ## Requirements
 

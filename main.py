@@ -10,6 +10,7 @@ from PyQt6.QtWidgets import (
     QVBoxLayout,
     QHBoxLayout,
     QMessageBox,
+    QInputDialog,
 )
 import fitz
 import os
@@ -65,18 +66,88 @@ def split_pdf(pdf_path, output_folder):
     except Exception as e:
         raise RuntimeError(f"Error splitting PDF: {e}")
 
+def encrypt_pdf(pdf_path, output_path, password):
+    try:
+        reader = PdfReader(pdf_path)
+        writer = PdfWriter()
+        for page in reader.pages:
+            writer.add_page(page)
+        writer.encrypt(password)
+        with open(output_path, "wb") as f:
+            writer.write(f)
+    except Exception as e:
+        raise RuntimeError(f"Error encrypting PDF: {e}")
+    
+def decrypt_pdf(pdf_path, output_path, password):
+    try:
+        reader = PdfReader(pdf_path)
+        if reader.is_encrypted:
+            reader.decrypt(password)
+        writer = PdfWriter()
+        for page in reader.pages:
+            writer.add_page(page)
+        with open(output_path, "wb") as f:
+            writer.write(f)
+    except Exception as e:
+        raise RuntimeError(f"Error decrypting PDF: {e}")
+
+def add_watermark(pdf_path, watermark_path, output_path):
+    try:
+        reader = PdfReader(pdf_path)
+        watermark = PdfReader(watermark_path).pages[0]
+        writer = PdfWriter()
+        for page in reader.pages:
+            page.merge_page(watermark)
+            writer.add_page(page)
+        with open(output_path, "wb") as f:
+            writer.write(f)
+    except Exception as e:
+        raise RuntimeError(f"Error adding watermark: {e}")
+    
+def compress_pdf(pdf_path, output_path):
+    try:
+        reader = PdfReader(pdf_path)
+        writer = PdfWriter()
+        for page in reader.pages:
+            writer.add_page(page)
+        writer.add_metadata(reader.metadata)
+        with open(output_path, "wb") as f:
+            writer.write(f)
+    except Exception as e:
+        raise RuntimeError(f"Error compressing PDF: {e}")
+    
+def extract_images_from_pdf(pdf_path, output_folder):
+    os.makedirs(output_folder, exist_ok=True)
+    try:
+        with fitz.open(pdf_path) as pdf_document:
+            for page_number in range(len(pdf_document)):
+                for img_index, img in enumerate(pdf_document[page_number].get_images(full=True)):
+                    xref = img[0]
+                    base_image = pdf_document.extract_image(xref)
+                    image_bytes = base_image["image"]
+                    image_ext = base_image["ext"]
+                    output_path = os.path.join(output_folder, f"page_{page_number + 1}_img_{img_index + 1}.{image_ext}")
+                    with open(output_path, "wb") as image_file:
+                        image_file.write(image_bytes)
+    except Exception as e:
+        raise RuntimeError(f"Error extracting images: {e}")
+
 class PDFWorkerApp(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("PDFWorker")
-        self.setFixedSize(600, 300)
+        self.setFixedSize(600, 400)
 
         central_widget = QWidget(self)
         self.setCentralWidget(central_widget)
 
         main_layout = QVBoxLayout(central_widget)
         form_layout = QVBoxLayout()
-        button_layout = QHBoxLayout()
+
+        # Button Layouts
+        button_layout_1 = QHBoxLayout()
+        button_layout_2 = QHBoxLayout()
+        button_layout_3 = QHBoxLayout()
 
         # Widgets
         self.pdf_path_label = QLabel("Select PDF File:")
@@ -103,6 +174,21 @@ class PDFWorkerApp(QMainWindow):
         self.split_button = QPushButton("Split PDF")
         self.split_button.clicked.connect(self.split_pdf)
 
+        self.encrypt_button = QPushButton("Encrypt PDF")
+        self.encrypt_button.clicked.connect(self.encrypt_pdf)
+
+        self.decrypt_button = QPushButton("Decrypt PDF")
+        self.decrypt_button.clicked.connect(self.decrypt_pdf)
+
+        self.watermark_button = QPushButton("Add Watermark")
+        self.watermark_button.clicked.connect(self.add_watermark)
+
+        self.compress_button = QPushButton("Compress PDF")
+        self.compress_button.clicked.connect(self.compress_pdf)
+
+        self.extract_images_button = QPushButton("Extract Images")
+        self.extract_images_button.clicked.connect(self.extract_images)
+
         # Add widgets to layouts
         form_layout.addWidget(self.pdf_path_label)
         form_layout.addWidget(self.pdf_path_input)
@@ -112,13 +198,23 @@ class PDFWorkerApp(QMainWindow):
         form_layout.addWidget(self.output_folder_input)
         form_layout.addWidget(self.output_browse_button)
 
-        button_layout.addWidget(self.convert_button)
-        button_layout.addWidget(self.extract_text_button)
-        button_layout.addWidget(self.merge_button)
-        button_layout.addWidget(self.split_button)
+        button_layout_1.addWidget(self.convert_button)
+        button_layout_1.addWidget(self.extract_text_button)
+        button_layout_1.addWidget(self.merge_button)
+        
+        button_layout_2.addWidget(self.split_button)
+        button_layout_2.addWidget(self.encrypt_button)
+        button_layout_2.addWidget(self.decrypt_button)
+        
+        button_layout_3.addWidget(self.watermark_button)
+        button_layout_3.addWidget(self.compress_button)
+        button_layout_3.addWidget(self.extract_images_button)
 
         main_layout.addLayout(form_layout)
-        main_layout.addLayout(button_layout)
+
+        main_layout.addLayout(button_layout_1)
+        main_layout.addLayout(button_layout_2)
+        main_layout.addLayout(button_layout_3)
 
         # Apply stylesheet
         self.setStyleSheet("""
@@ -184,6 +280,71 @@ class PDFWorkerApp(QMainWindow):
         try:
             split_pdf(pdf_path, output_folder)
             QMessageBox.information(self, "Success", f"PDF split into pages in: {output_folder}")
+        except Exception as e:
+            QMessageBox.critical(self, "Error", str(e))
+
+    def encrypt_pdf(self):
+        pdf_path = self.pdf_path_input.text()
+        output_path, _ = QFileDialog.getSaveFileName(self, "Save Encrypted PDF", "", "PDF Files (*.pdf)")
+        if not pdf_path or not output_path:
+            QMessageBox.critical(self, "Error", "Please select a valid PDF file and output file.")
+            return
+        password, ok = QInputDialog.getText(self, "Enter Password", "Password:", QLineEdit.EchoMode.Password)
+        if ok and password:
+            try:
+                encrypt_pdf(pdf_path, output_path, password)
+                QMessageBox.information(self, "Success", f"Encrypted PDF saved in: {output_path}")
+            except Exception as e:
+                QMessageBox.critical(self, "Error", str(e))
+
+    def decrypt_pdf(self):
+        pdf_path = self.pdf_path_input.text()
+        output_path, _ = QFileDialog.getSaveFileName(self, "Save Decrypted PDF", "", "PDF Files (*.pdf)")
+        if not pdf_path or not output_path:
+            QMessageBox.critical(self, "Error", "Please select a valid PDF file and output file.")
+            return
+        password, ok = QInputDialog.getText(self, "Enter Password", "Password:", QLineEdit.EchoMode.Password)
+        if ok and password:
+            try:
+                decrypt_pdf(pdf_path, output_path, password)
+                QMessageBox.information(self, "Success", f"Decrypted PDF saved in: {output_path}")
+            except Exception as e:
+                QMessageBox.critical(self, "Error", str(e))
+
+    def add_watermark(self):
+        pdf_path = self.pdf_path_input.text()
+        watermark_path, _ = QFileDialog.getOpenFileName(self, "Select Watermark PDF", "", "PDF Files (*.pdf)")
+        output_path, _ = QFileDialog.getSaveFileName(self, "Save Watermarked PDF", "", "PDF Files (*.pdf)")
+        if not pdf_path or not watermark_path or not output_path:
+            QMessageBox.critical(self, "Error", "Please select a valid PDF file, watermark, and output file.")
+            return
+        try:
+            add_watermark(pdf_path, watermark_path, output_path)
+            QMessageBox.information(self, "Success", f"Watermarked PDF saved in: {output_path}")
+        except Exception as e:
+            QMessageBox.critical(self, "Error", str(e))
+
+    def compress_pdf(self):
+        pdf_path = self.pdf_path_input.text()
+        output_path, _ = QFileDialog.getSaveFileName(self, "Save Compressed PDF", "", "PDF Files (*.pdf)")
+        if not pdf_path or not output_path:
+            QMessageBox.critical(self, "Error", "Please select a valid PDF file and output file.")
+            return
+        try:
+            compress_pdf(pdf_path, output_path)
+            QMessageBox.information(self, "Success", f"Compressed PDF saved in: {output_path}")
+        except Exception as e:
+            QMessageBox.critical(self, "Error", str(e))
+
+    def extract_images(self):
+        pdf_path = self.pdf_path_input.text()
+        output_folder = self.output_folder_input.text()
+        if not pdf_path or not output_folder:
+            QMessageBox.critical(self, "Error", "Please select a valid PDF file and output folder.")
+            return
+        try:
+            extract_images_from_pdf(pdf_path, output_folder)
+            QMessageBox.information(self, "Success", f"Images extracted to: {output_folder}")
         except Exception as e:
             QMessageBox.critical(self, "Error", str(e))
 
